@@ -18,6 +18,7 @@ package com.example.android.sunshine.app;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.res.TypedArray;
 import android.database.Cursor;
@@ -25,6 +26,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.design.widget.AppBarLayout;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
@@ -47,11 +50,23 @@ import android.widget.TextView;
 
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 
 /**
  * Encapsulates fetching the forecast and displaying it as a {@link android.support.v7.widget.RecyclerView} layout.
  */
-public class ForecastFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor>, SharedPreferences.OnSharedPreferenceChangeListener {
+public class ForecastFragment extends Fragment implements
+                    LoaderManager.LoaderCallbacks<Cursor>,
+                    SharedPreferences.OnSharedPreferenceChangeListener,
+                    GoogleApiClient.ConnectionCallbacks,
+                    GoogleApiClient.OnConnectionFailedListener,
+                    DataApi.DataListener
+                    {
     public static final String LOG_TAG = ForecastFragment.class.getSimpleName();
     private ForecastAdapter mForecastAdapter;
     private RecyclerView mRecyclerView;
@@ -59,11 +74,18 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     private int mChoiceMode;
     private boolean mHoldForTransition;
     private long mInitialSelectedDate = -1;
+    private GoogleApiClient mGoogleApiClient;
 
     private static final String SELECTED_KEY = "selected_position";
 
     private static final int FORECAST_LOADER = 0;
-    // For the forecast view we're showing only a small subset of the stored data.
+    private static final int REQUEST_RESOLVE_ERROR = 1000;
+    private static final String FORECAST_PATH="/forecast";
+
+
+
+
+                        // For the forecast view we're showing only a small subset of the stored data.
     // Specify the columns we need.
     private static final String[] FORECAST_COLUMNS = {
             // In this case the id needs to be fully qualified with a table name, since
@@ -95,7 +117,10 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     static final int COL_COORD_LAT = 7;
     static final int COL_COORD_LONG = 8;
 
-    /**
+
+
+
+                        /**
      * A callback interface that all activities containing this fragment must
      * implement. This mechanism allows activities to be notified of item
      * selections.
@@ -114,8 +139,46 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Add this line in order for this fragment to handle menu events.
-        setHasOptionsMenu(true);
+          setHasOptionsMenu(true);
+
+        mGoogleApiClient = new GoogleApiClient.Builder(getActivity().getApplicationContext())
+                            .addApi(Wearable.API)
+                            .addConnectionCallbacks(this)
+                            .addOnConnectionFailedListener(this)
+                            .build();
+
     }
+
+        @Override
+        public void onConnected(@Nullable Bundle bundle) {
+
+            Wearable.DataApi.addListener(mGoogleApiClient,this);
+
+        }
+        @Override
+        public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+            if(connectionResult.hasResolution()){
+                    try {
+                        connectionResult.startResolutionForResult(getActivity(), REQUEST_RESOLVE_ERROR);
+                     }catch (IntentSender.SendIntentException e){
+                        mGoogleApiClient.connect();
+                    }
+            }else {
+
+                Wearable.DataApi.removeListener(mGoogleApiClient,this);
+                mGoogleApiClient.disconnect();}
+
+        }
+        @Override
+        public void onConnectionSuspended(int i) {
+
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+
+        }
 
     @Override
     public void onResume() {
@@ -135,6 +198,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.forecastfragment, menu);
     }
+
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -359,7 +423,11 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                         RecyclerView.ViewHolder vh = mRecyclerView.findViewHolderForAdapterPosition(position);
                         if (null != vh && mAutoSelectView) {
                             mForecastAdapter.selectView(vh);
-                        }
+                                if ( vh instanceof ForecastAdapter.ForecastAdapterViewHolder && position==0) {
+
+                                }
+
+                                }
                         if ( mHoldForTransition ) {
                             getActivity().supportStartPostponedEnterTransition();
                         }
@@ -379,6 +447,10 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
         super.onDestroy();
         if (null != mRecyclerView) {
             mRecyclerView.clearOnScrollListeners();
+                    }
+        if(mGoogleApiClient!=null && mGoogleApiClient.isConnected()){
+            Wearable.DataApi.removeListener(mGoogleApiClient,this);
+            mGoogleApiClient.disconnect();
         }
     }
 
@@ -435,4 +507,10 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
             updateEmptyView();
         }
     }
+
+        public void sendTodaysForecast(){
+
+            PutDataMapRequest putDataMapRquest = PutDataMapRequest.create(FORECAST_PATH);
+
+        }
 }

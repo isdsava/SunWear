@@ -17,6 +17,7 @@ package com.example.android.sunshine.app;
 
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.view.ViewCompat;
@@ -28,6 +29,7 @@ import android.view.ViewGroup;
 import android.widget.Checkable;
 import android.widget.ImageView;
 import android.widget.TextView;
+import com.google.android.gms.wearable.PutDataMapRequest;
 
 import com.bumptech.glide.Glide;
 import com.example.android.sunshine.app.data.WeatherContract;
@@ -40,6 +42,7 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
 
     private static final int VIEW_TYPE_TODAY = 0;
     private static final int VIEW_TYPE_FUTURE_DAY = 1;
+
 
     // Flag to determine if we want to use a separate view for "today".
     private boolean mUseTodayLayout = true;
@@ -182,6 +185,10 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
         forecastAdapterViewHolder.mLowTempView.setText(lowString);
         forecastAdapterViewHolder.mLowTempView.setContentDescription(mContext.getString(R.string.a11y_low_temp, lowString));
 
+        // /((BitmapDrawable)forecastAdapterViewHolder.mIconView.getDrawable()).getBitmap();
+
+
+
         mICM.onBindViewHolder(forecastAdapterViewHolder, position);
     }
 
@@ -228,4 +235,5 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
             vfh.onClick(vfh.itemView);
         }
     }
+
 }
