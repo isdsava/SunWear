@@ -52,9 +52,11 @@ import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 /**
@@ -75,12 +77,20 @@ public class ForecastFragment extends Fragment implements
     private boolean mHoldForTransition;
     private long mInitialSelectedDate = -1;
     private GoogleApiClient mGoogleApiClient;
+    private PutDataMapRequest mPutDataMap;
+    private PutDataRequest mPutReq;
 
     private static final String SELECTED_KEY = "selected_position";
 
     private static final int FORECAST_LOADER = 0;
     private static final int REQUEST_RESOLVE_ERROR = 1000;
     private static final String FORECAST_PATH="/forecast";
+    private static final String HIGH_KEY ="high";
+    private static final String LOW_KEY ="low";
+    private static final String IMAGE_KEY ="image";
+
+
+
 
 
 
@@ -141,7 +151,7 @@ public class ForecastFragment extends Fragment implements
         // Add this line in order for this fragment to handle menu events.
           setHasOptionsMenu(true);
 
-        mGoogleApiClient = new GoogleApiClient.Builder(getActivity().getApplicationContext())
+        mGoogleApiClient = new GoogleApiClient.Builder(getContext())
                             .addApi(Wearable.API)
                             .addConnectionCallbacks(this)
                             .addOnConnectionFailedListener(this)
@@ -151,18 +161,38 @@ public class ForecastFragment extends Fragment implements
 
         @Override
         public void onConnected(@Nullable Bundle bundle) {
-
+            Log.v(LOG_TAG,"COnnected!");
             Wearable.DataApi.addListener(mGoogleApiClient,this);
+            Log.v(LOG_TAG,"Listener adddes");
 
+            if (mPutDataMap != null) {
+
+                Wearable.DataApi.putDataItem(mGoogleApiClient, mPutDataMap.asPutDataRequest());
+                Log.v(LOG_TAG,"We've put it in its not a sin");
+               /** Wearable.DataApi.putDataItem(mGoogleApiClient, mPutReq)
+                        .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                            @Override
+                            public void onResult(@NonNull DataApi.DataItemResult dataItemResult) {
+                                //handle failure here if needed
+                                if(dataItemResult.getStatus().isSuccess()){
+                                Log.v("HGERE", "some success bnoy");}
+                            }
+                        });**/
+            }
         }
+
+
         @Override
         public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
             if(connectionResult.hasResolution()){
                     try {
+                        Log.v(LOG_TAG,"Failed connect trying again");
                         connectionResult.startResolutionForResult(getActivity(), REQUEST_RESOLVE_ERROR);
                      }catch (IntentSender.SendIntentException e){
+                        Log.v(LOG_TAG,"Failed connectanother attempt");
                         mGoogleApiClient.connect();
+
                     }
             }else {
 
@@ -179,11 +209,23 @@ public class ForecastFragment extends Fragment implements
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
 
         }
+        @Override
+       public void onStart() {
+            super.onStart();
+            if(!mGoogleApiClient.isConnected()){
+                  mGoogleApiClient.connect();
+                Log.v(LOG_TAG,"On start - should now hit onConnected callback");}
+
+        }
 
     @Override
     public void onResume() {
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
         sp.registerOnSharedPreferenceChangeListener(this);
+        mGoogleApiClient.connect();
+
+        Log.v(LOG_TAG,"Just resumed now should call on connected again. and again");
+
         super.onResume();
     }
 
@@ -191,6 +233,13 @@ public class ForecastFragment extends Fragment implements
     public void onPause() {
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
         sp.unregisterOnSharedPreferenceChangeListener(this);
+
+        if ((mGoogleApiClient != null) && mGoogleApiClient.isConnected()) {
+            Wearable.DataApi.removeListener(mGoogleApiClient, this);
+             mGoogleApiClient.disconnect();
+            Log.v(LOG_TAG,"Disconnected all listeners removed");
+        }
+
         super.onPause();
     }
 
@@ -320,6 +369,9 @@ public class ForecastFragment extends Fragment implements
         // We hold for transition here just in-case the activity
         // needs to be re-created. In a standard return transition,
         // this doesn't actually make a difference.
+        if(!mGoogleApiClient.isConnected()){
+            mGoogleApiClient.connect();}
+
         if ( mHoldForTransition ) {
             getActivity().supportPostponeEnterTransition();
         }
@@ -423,11 +475,18 @@ public class ForecastFragment extends Fragment implements
                         RecyclerView.ViewHolder vh = mRecyclerView.findViewHolderForAdapterPosition(position);
                         if (null != vh && mAutoSelectView) {
                             mForecastAdapter.selectView(vh);
-                                if ( vh instanceof ForecastAdapter.ForecastAdapterViewHolder && position==0) {
 
                                 }
+                        if ( null!=vh && vh instanceof ForecastAdapter.ForecastAdapterViewHolder && position==0) {
 
-                                }
+                            String high =(String)((ForecastAdapter.ForecastAdapterViewHolder) vh).mHighTempView.getText();
+                            String low = (String)((ForecastAdapter.ForecastAdapterViewHolder) vh).mLowTempView.getText();
+
+                            sendTodaysForecast(high,low);
+                            Log.d(LOG_TAG, "Me high and me low are sett andf the are : " + high + " " +  low);
+
+
+                        }
                         if ( mHoldForTransition ) {
                             getActivity().supportStartPostponedEnterTransition();
                         }
@@ -508,9 +567,15 @@ public class ForecastFragment extends Fragment implements
         }
     }
 
-        public void sendTodaysForecast(){
+        public void sendTodaysForecast(String high,String low) {
 
-            PutDataMapRequest putDataMapRquest = PutDataMapRequest.create(FORECAST_PATH);
-
+            mPutDataMap = PutDataMapRequest.create(FORECAST_PATH);
+            mPutDataMap.getDataMap().putString(HIGH_KEY, high);
+            mPutDataMap.getDataMap().putString(LOW_KEY, low);
+            mPutDataMap.setUrgent();
         }
+
+            //mPutReq = putDataMap.asPutDataRequest();}
+
+
 }
