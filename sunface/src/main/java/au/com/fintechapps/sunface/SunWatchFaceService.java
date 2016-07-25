@@ -40,9 +40,11 @@ import android.view.WindowInsets;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItemBuffer;
 import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
@@ -53,7 +55,7 @@ import java.util.concurrent.TimeUnit;
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
-public class SunWatchFace extends CanvasWatchFaceService {
+public class SunWatchFaceService extends CanvasWatchFaceService {
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
@@ -80,15 +82,15 @@ public class SunWatchFace extends CanvasWatchFaceService {
     }
 
     private static class EngineHandler extends Handler {
-        private final WeakReference<SunWatchFace.Engine> mWeakReference;
+        private final WeakReference<SunWatchFaceService.Engine> mWeakReference;
 
-        public EngineHandler(SunWatchFace.Engine reference) {
+        public EngineHandler(SunWatchFaceService.Engine reference) {
             mWeakReference = new WeakReference<>(reference);
         }
 
         @Override
         public void handleMessage(Message msg) {
-            SunWatchFace.Engine engine = mWeakReference.get();
+            SunWatchFaceService.Engine engine = mWeakReference.get();
             if (engine != null) {
                 switch (msg.what) {
                     case MSG_UPDATE_TIME:
@@ -132,7 +134,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
             super.onCreate(holder);
 
 
-            mGoogleApiClient = new GoogleApiClient.Builder(SunWatchFace.this)
+            mGoogleApiClient = new GoogleApiClient.Builder(SunWatchFaceService.this)
                     .addApi(Wearable.API)
                     .addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
@@ -140,13 +142,13 @@ public class SunWatchFace extends CanvasWatchFaceService {
 
 
 
-            setWatchFaceStyle(new WatchFaceStyle.Builder(SunWatchFace.this)
+            setWatchFaceStyle(new WatchFaceStyle.Builder(SunWatchFaceService.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                     .setShowSystemUiTime(false)
                     .setAcceptsTapEvents(true)
                     .build());
-            Resources resources = SunWatchFace.this.getResources();
+            Resources resources = SunWatchFaceService.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
             mBackgroundPaint = new Paint();
@@ -172,12 +174,32 @@ public class SunWatchFace extends CanvasWatchFaceService {
 
             Log.d("ME HERE", "GotMeConnection:");
 
-            Wearable.DataApi.addListener(mGoogleApiClient,this);
+            Wearable.DataApi.addListener(mGoogleApiClient,Engine.this);
+           //TODO removed as this gets the dodo but doesnt wait for the listener
+            // Wearable.DataApi.getDataItems(mGoogleApiClient).setResultCallback(onConnectedCallback);
 
         }
 
+        private final ResultCallback<DataItemBuffer> onConnectedCallback = new ResultCallback<DataItemBuffer>() {
+            @Override
+            public void onResult(@NonNull DataItemBuffer dataItems) {
+                Log.d("HHHH", "me here");
+                    int items = dataItems.getCount();
+
+                Log.d("HHHH", String.valueOf(items));
+                    //for (int i=0;i<= items;i++){
+                      //  Log.d("HHHH", dataItems.get(i).getAssets().toString());
+
+                    //}
+
+            }
+        };
+
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
+
+            // TODO http://stackoverflow.com/questions/25141046/wearablelistenerservice-ondatachanged-is-not-called
+            // http://stackoverflow.com/questions/24676165/unable-to-push-data-to-android-wear-emulator
 
             Log.d("HOTMMER", "I at least got called");
 
@@ -229,6 +251,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
             } else {
                 unregisterReceiver();
                 if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+                    Wearable.DataApi.removeListener(mGoogleApiClient,this);
                     mGoogleApiClient.disconnect();
                 }
             }
@@ -244,7 +267,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
             }
             mRegisteredTimeZoneReceiver = true;
             IntentFilter filter = new IntentFilter(Intent.ACTION_TIMEZONE_CHANGED);
-            SunWatchFace.this.registerReceiver(mTimeZoneReceiver, filter);
+            SunWatchFaceService.this.registerReceiver(mTimeZoneReceiver, filter);
         }
 
         private void unregisterReceiver() {
@@ -252,7 +275,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
                 return;
             }
             mRegisteredTimeZoneReceiver = false;
-            SunWatchFace.this.unregisterReceiver(mTimeZoneReceiver);
+            SunWatchFaceService.this.unregisterReceiver(mTimeZoneReceiver);
         }
 
         @Override
@@ -260,7 +283,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
             super.onApplyWindowInsets(insets);
 
             // Load resources that have alternate values for round watches.
-            Resources resources = SunWatchFace.this.getResources();
+            Resources resources = SunWatchFaceService.this.getResources();
             boolean isRound = insets.isRound();
             mXOffset = resources.getDimension(isRound
                     ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
@@ -275,6 +298,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
             super.onPropertiesChanged(properties);
             mLowBitAmbient = properties.getBoolean(PROPERTY_LOW_BIT_AMBIENT, false);
         }
+
 
         @Override
         public void onTimeTick() {
@@ -304,7 +328,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
          */
         @Override
         public void onTapCommand(int tapType, int x, int y, long eventTime) {
-            Resources resources = SunWatchFace.this.getResources();
+            Resources resources = SunWatchFaceService.this.getResources();
             switch (tapType) {
                 case TAP_TYPE_TOUCH:
                     // The user has started touching the screen.
