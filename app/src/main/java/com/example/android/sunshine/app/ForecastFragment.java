@@ -22,7 +22,10 @@ import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.res.TypedArray;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -53,11 +56,15 @@ import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 /**
  * Encapsulates fetching the forecast and displaying it as a {@link android.support.v7.widget.RecyclerView} layout.
@@ -88,6 +95,7 @@ public class ForecastFragment extends Fragment implements
     private static final String HIGH_KEY ="high";
     private static final String LOW_KEY ="low";
     private static final String IMAGE_KEY ="image";
+    private static final String DATE_KEY="date";
 
 
 
@@ -481,8 +489,9 @@ public class ForecastFragment extends Fragment implements
 
                             String high =(String)((ForecastAdapter.ForecastAdapterViewHolder) vh).mHighTempView.getText();
                             String low = (String)((ForecastAdapter.ForecastAdapterViewHolder) vh).mLowTempView.getText();
-
-                            sendTodaysForecast(high,low);
+                            String wearDate = ((ForecastAdapter.ForecastAdapterViewHolder) vh).mDateWearable;
+                            Bitmap bitmap = ((BitmapDrawable)((ForecastAdapter.ForecastAdapterViewHolder) vh).mIconView.getDrawable()).getBitmap();
+                            sendTodaysForecast(high,low,toAsset(bitmap),wearDate);
                             Log.d(LOG_TAG, "Me high and me low are sett andf the are : " + high + " " +  low);
 
 
@@ -567,15 +576,40 @@ public class ForecastFragment extends Fragment implements
         }
     }
 
-        public void sendTodaysForecast(String high,String low) {
+        public void sendTodaysForecast(String high,String low,Asset imageAss,String wearDate) {
 
             mPutDataMap = PutDataMapRequest.create(FORECAST_PATH);
             mPutDataMap.getDataMap().putString(HIGH_KEY, high);
             mPutDataMap.getDataMap().putString(LOW_KEY, low);
+            mPutDataMap.getDataMap().putAsset(IMAGE_KEY, imageAss);
+            mPutDataMap.getDataMap().putString(DATE_KEY, wearDate);
+            mPutDataMap.getDataMap().putLong("Time",System.currentTimeMillis());
+
             mPutDataMap.setUrgent();
         }
 
             //mPutReq = putDataMap.asPutDataRequest();}
+
+                        //Thanks to android dev examples
+            private static Asset toAsset(Bitmap bitmap) {
+                ByteArrayOutputStream byteStream = null;
+                try {
+                    byteStream = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteStream);
+                    return Asset.createFromBytes(byteStream.toByteArray());
+                } finally {
+                    if (null != byteStream) {
+                        try {
+                            byteStream.close();
+                        } catch (IOException e) {
+                            // ignore
+                        }
+                    }
+                }
+            }
+
+
+
 
 
 }

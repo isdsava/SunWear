@@ -104,6 +104,20 @@ public class Utility {
         }
     }
 
+//for the wearable only want the current day but not "Today"
+
+    public static String getWearableDayString(Context context, long dateInMillis, boolean displayLongToday) {
+        // The day string for forecast uses the following logic:
+        // For today: "Today, June 8"
+        // For tomorrow:  "Tomorrow"
+        // For the next 5 days: "Wednesday" (just the day name)
+        // For all days after that: "Mon Jun 8"
+
+
+            SimpleDateFormat shortenedDateFormat = new SimpleDateFormat("EEE, MMM dd yyyy");
+            return shortenedDateFormat.format(dateInMillis);
+    }
+
     /**
      * Helper method to convert the database representation of the date into something to display
      * to users.  As classy and polished a user experience as "20140102" is, we can do better.

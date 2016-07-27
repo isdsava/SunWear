@@ -62,6 +62,7 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
         public final TextView mDescriptionView;
         public final TextView mHighTempView;
         public final TextView mLowTempView;
+        public String mDateWearable;
 
         public ForecastAdapterViewHolder(View view) {
             super(view);
@@ -70,6 +71,7 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
             mDescriptionView = (TextView) view.findViewById(R.id.list_item_forecast_textview);
             mHighTempView = (TextView) view.findViewById(R.id.list_item_high_textview);
             mLowTempView = (TextView) view.findViewById(R.id.list_item_low_textview);
+            mDateWearable = null;
             view.setOnClickListener(this);
         }
 
@@ -161,7 +163,7 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
 
         // Find TextView and set formatted date on it
         forecastAdapterViewHolder.mDateView.setText(Utility.getFriendlyDayString(mContext, dateInMillis, useLongToday));
-
+        forecastAdapterViewHolder.mDateWearable = Utility.getWearableDayString(mContext, dateInMillis, useLongToday);
         // Read weather forecast from cursor
         String description = Utility.getStringForWeatherCondition(mContext, weatherId);
 
