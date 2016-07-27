@@ -15,7 +15,7 @@ import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
-
+//Maybe for a future iteration but not needed for testing
 public class DataLayerListenerService extends WearableListenerService implements GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
 
     GoogleApiClient mGoogleApiClient;
@@ -53,7 +53,7 @@ public class DataLayerListenerService extends WearableListenerService implements
 
     @Override
     public void onDataChanged(DataEventBuffer dataEventBuffer) {
-        Log.d("HOTMMER", "I at least got called");
+        Log.d("HOTMMER-DATA", "I at least got called");
 
         for (DataEvent dataEvent : dataEventBuffer){
 
