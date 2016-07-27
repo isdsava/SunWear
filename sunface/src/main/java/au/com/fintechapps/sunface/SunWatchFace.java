@@ -179,7 +179,7 @@ public class SunWatchFace extends CanvasWatchFaceService {
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
 
-            Log.d("HOTMMER", "I at least got called");
+            Log.d("SUNFACE", "I at least got called");
 
                     for (DataEvent dataEvent : dataEventBuffer){
 

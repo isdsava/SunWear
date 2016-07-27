@@ -21,11 +21,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -41,14 +44,18 @@ import android.view.WindowInsets;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItemBuffer;
+import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.TimeZone;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -58,6 +65,8 @@ import java.util.concurrent.TimeUnit;
 public class SunWatchFaceService extends CanvasWatchFaceService {
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
+    private static final Typeface BOLD_TYPEFACE =
+            Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD);
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second since seconds are
@@ -74,6 +83,12 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
     private static final String HIGH_KEY ="high";
     private static final String LOW_KEY ="low";
     private static final String IMAGE_KEY ="image";
+    private static final String DATE_KEY="date";
+    private String mHigh=null;
+    private String mLow=null;
+    private String mDate=null;
+    private Bitmap meBitmap=null;
+    private Rect mBos = new Rect();
 
 
     @Override
@@ -152,7 +167,7 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(resources.getColor(R.color.background));
+            mBackgroundPaint.setColor(resources.getColor(R.color.primary));
 
             mTextPaint = new Paint();
             mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
@@ -201,7 +216,7 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             // TODO http://stackoverflow.com/questions/25141046/wearablelistenerservice-ondatachanged-is-not-called
             // http://stackoverflow.com/questions/24676165/unable-to-push-data-to-android-wear-emulator
 
-            Log.d("HOTMMER", "I at least got called");
+            Log.d("SUNFACESERVICE", "I at least got called");
 
                     for (DataEvent dataEvent : dataEventBuffer){
 
@@ -209,6 +224,13 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
                                 String path = dataEvent.getDataItem().getUri().getPath();
                                 if(FORECAST_PATH.equals(path)){
                                     Log.v("ITHASPPED",dataEvent.getDataItem().toString());
+                                    DataMapItem  dataMapItem = DataMapItem.fromDataItem(dataEvent.getDataItem());
+                                            mHigh = dataMapItem.getDataMap().getString(HIGH_KEY);
+                                            mLow =  dataMapItem.getDataMap().getString(LOW_KEY);
+                                            mDate =  dataMapItem.getDataMap().getString(DATE_KEY);
+                                    Asset mePhoto = dataMapItem.getDataMap().getAsset(IMAGE_KEY);
+                                        new LoadBitmapAsync().execute(mePhoto);
+                                    Log.v("HAPPYHIGH",mHigh);
                                 }
 
 
@@ -224,6 +246,11 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
             super.onDestroy();
+        }
+
+        @Override //This will help with any background image
+        public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            super.onSurfaceChanged(holder, format, width, height);
         }
 
         private Paint createTextPaint(int textColor) {
@@ -354,13 +381,66 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             } else {
                 canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
             }
+            //reset
+            mTextPaint =createTextPaint(getResources().getColor(R.color.digital_text));
+            mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_size));
 
+            int fudge=0;
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             mTime.setToNow();
             String text = mAmbient
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+
+            mTextPaint.getTextBounds(text,0,text.length(),mBos);
+
+            canvas.drawText(text, (bounds.width()-mBos.width())/2, mYOffset, mTextPaint);
+
+                Rect rectum = canvas.getClipBounds();
+
+                    Log.v("RECUM",String.valueOf(rectum.width()));
+
+            if(mDate!=null) {
+                mTextPaint.setColor(getResources().getColor(R.color.primary_light));
+                mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_small));
+                mTextPaint.getTextBounds(mDate, 0, mDate.length(), mBos);
+                //TODO clean up mOxfest etrcs
+                canvas.drawText(mDate, (bounds.width() - mBos.width()) / 2, mYOffset + 36, mTextPaint);
+            }
+
+            mTextPaint.setColor(getResources().getColor(R.color.primary_light));
+            canvas.drawLine(((bounds.width()/2)-30),mYOffset+56,((bounds.width()/2)+30),mYOffset+56,mTextPaint);
+
+            if(mHigh!=null){
+                mTextPaint.setColor(getResources().getColor(R.color.digital_text));
+                mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_med));
+                mTextPaint.setTypeface(BOLD_TYPEFACE);
+                mTextPaint.getTextBounds(mHigh,0,mHigh.length(),mBos);
+                int highW = mBos.width();
+                float highH= mBos.height() + 76 + mYOffset;
+                mXOffset = (bounds.width()/2)-highW/2;
+                canvas.drawText(mHigh,mXOffset,highH,mTextPaint);
+
+                mTextPaint.setColor(getResources().getColor(R.color.primary_light));
+                mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_med));
+                mTextPaint.setTypeface(NORMAL_TYPEFACE);
+                mTextPaint.getTextBounds(mLow,0,mLow.length(),mBos);
+                mXOffset = (bounds.width()/2) + (highW/2) + 20;
+                canvas.drawText(mLow,mXOffset,highH,mTextPaint);
+
+                Rect tum = new Rect();
+                canvas.getClipBounds(tum);
+                Log.d("TUM",String.valueOf(tum.width()));
+                Log.d("Bound",String.valueOf(bounds.width()));
+
+                if(meBitmap!=null){
+                    mXOffset = (bounds.width()/2) - (highW/2) - 20 - meBitmap.getWidth();
+
+                    canvas.drawBitmap(meBitmap,mXOffset,highH - (meBitmap.getHeight()/2)-8,null);
+
+                }
+            }
+
         }
 
         /**
@@ -397,7 +477,31 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             }
         }
 
+        private class LoadBitmapAsync extends AsyncTask<Asset,Void,Bitmap> {
+            @Override
+            protected Bitmap doInBackground(Asset... assets) {
 
+                if(assets.length>0){
+                    Asset asset = assets[0];
+                    InputStream inputStream = Wearable.DataApi.getFdForAsset(mGoogleApiClient,asset).await().getInputStream();
+
+                    if(inputStream!=null){
+                        return BitmapFactory.decodeStream(inputStream);
+                    }else{return null;}
+                }else {return null;}
+
+            }
+
+            @Override
+            protected void onPostExecute(Bitmap bitmap) {
+
+                if(bitmap!=null){
+
+                    meBitmap = Bitmap.createScaledBitmap(bitmap,42,42,false);
+                    invalidate();
+                }
+            }
+        }
 
     }
 }

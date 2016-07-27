@@ -29,21 +29,23 @@
 
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService"/>
-
                 <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE"/>
             </intent-filter>
 
         </service>
+        <!--
+        In theory not really needed
         <service android:name=".DataLayerListenerService"
-                 android:enabled="true">
+                  android:enabled="true">
 
-            <intent-filter>
-                <!-- listeners receive events that match the action and data filters -->
+             <intent-filter>
+                  listeners receive events that match the action and data filters
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/forecast"/>
             </intent-filter>
 
-        </service>
+
+        </service> -->
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version"/>
