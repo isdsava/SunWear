@@ -28,6 +28,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -49,12 +50,18 @@ import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataItemAsset;
 import com.google.android.gms.wearable.DataItemBuffer;
+import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -85,6 +92,11 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
     private static final String LOW_KEY ="low";
     private static final String IMAGE_KEY ="image";
     private static final String DATE_KEY="date";
+    private static final float mDateY=44;
+    private static final float mLineY=64;
+    private static final float mHighY=84;
+    private static final float mGenX=20;
+    private static final float mLineLen=30;
     private String mHigh=null;
     private String mLow=null;
     private String mDate=null;
@@ -165,9 +177,8 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .setStatusBarGravity(Gravity.RIGHT |Gravity.TOP)
                     .build());
-            Resources resources = SunWatchFaceService.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
+            Resources resources = SunWatchFaceService.this.getResources();
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.primary));
 
@@ -189,51 +200,57 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onConnected(@Nullable Bundle bundle) {
 
-            Log.d("ME HERE", "GotMeConnection:");
 
             Wearable.DataApi.addListener(mGoogleApiClient,Engine.this);
-           //TODO removed as this gets the dodo but doesnt wait for the listener
-            // Wearable.DataApi.getDataItems(mGoogleApiClient).setResultCallback(onConnectedCallback);
+                    Uri uri = new Uri.Builder()
+                    .scheme(PutDataRequest.WEAR_URI_SCHEME)
+                    .path(FORECAST_PATH)
+                    .build();
+            //First run dont want a hollow screen
+            if(mHigh==null) {
+            Wearable.DataApi.getDataItems(mGoogleApiClient,uri).setResultCallback(onConnectedCallback);}
 
         }
 
         private final ResultCallback<DataItemBuffer> onConnectedCallback = new ResultCallback<DataItemBuffer>() {
             @Override
             public void onResult(@NonNull DataItemBuffer dataItems) {
-                Log.d("HHHH", "me here");
-                    int items = dataItems.getCount();
 
-                Log.d("HHHH", String.valueOf(items));
-                    //for (int i=0;i<= items;i++){
-                      //  Log.d("HHHH", dataItems.get(i).getAssets().toString());
+                Iterator<DataItem> dataItemIterator = dataItems.singleRefIterator();
 
-                    //}
+                while(dataItemIterator.hasNext()){
+                    DataItem dataItem = dataItemIterator.next();
 
+                    DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
+                    DataMap dataMap = dataMapItem.getDataMap();
+                    mHigh = dataMap.getString(HIGH_KEY);
+                    mLow = dataMap.getString(LOW_KEY);
+                    mDate = dataMap.getString(DATE_KEY);
+                    Asset mePhoto = dataMapItem.getDataMap().getAsset(IMAGE_KEY);
+                    new LoadBitmapAsync().execute(mePhoto);
+
+                }
+
+                dataItems.release();
             }
         };
 
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
 
-            // TODO http://stackoverflow.com/questions/25141046/wearablelistenerservice-ondatachanged-is-not-called
-            // http://stackoverflow.com/questions/24676165/unable-to-push-data-to-android-wear-emulator
 
-            Log.d("SUNFACESERVICE", "I at least got called");
-
-                    for (DataEvent dataEvent : dataEventBuffer){
+              for (DataEvent dataEvent : dataEventBuffer){
 
                         if(dataEvent.getType() == DataEvent.TYPE_CHANGED){
                                 String path = dataEvent.getDataItem().getUri().getPath();
                                 if(FORECAST_PATH.equals(path)){
-                                    Log.v("ITHASPPED",dataEvent.getDataItem().toString());
-                                    DataMapItem  dataMapItem = DataMapItem.fromDataItem(dataEvent.getDataItem());
+                                           DataMapItem  dataMapItem = DataMapItem.fromDataItem(dataEvent.getDataItem());
                                             mHigh = dataMapItem.getDataMap().getString(HIGH_KEY);
                                             mLow =  dataMapItem.getDataMap().getString(LOW_KEY);
                                             mDate =  dataMapItem.getDataMap().getString(DATE_KEY);
                                     Asset mePhoto = dataMapItem.getDataMap().getAsset(IMAGE_KEY);
                                         new LoadBitmapAsync().execute(mePhoto);
-                                    Log.v("HAPPYHIGH",mHigh);
-                                }
+                                      }
 
 
                         }
@@ -259,14 +276,31 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             Paint paint = new Paint();
             paint.setColor(textColor);
             paint.setTypeface(NORMAL_TYPEFACE);
-            paint.setAntiAlias(true);
+            if(mLowBitAmbient && isInAmbientMode()) {
+                paint.setAntiAlias(false);
+                paint.setFilterBitmap(false);
+            }else {
+                paint.setAntiAlias(true);
+                paint.setFilterBitmap(true);
+            }
             return paint;
         }
 
+        private Paint resetTextPaint(int textColor,Paint paint){
+            paint.setColor(textColor);
+            paint.setTypeface(NORMAL_TYPEFACE);
+            if(mLowBitAmbient && isInAmbientMode()) {
+                paint.setAntiAlias(false);
+                paint.setFilterBitmap(false);
+            }else {
+                paint.setAntiAlias(true);
+                paint.setFilterBitmap(true);
+            }
+            return paint;
+
+        }
         @Override
         public void onVisibilityChanged(boolean visible) {
-
-            Log.d("ME HERE", "onVisibilityChanged: " + visible);
 
             super.onVisibilityChanged(visible);
 
@@ -319,6 +353,8 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             float textSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
 
+            mYOffset = resources.getDimension(isRound ? R.dimen.digital_y_offset_round:R.dimen.digital_y_offset);
+
             mTextPaint.setTextSize(textSize);
         }
 
@@ -342,6 +378,7 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
+                    mTextPaint.setFilterBitmap(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -383,8 +420,9 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
             } else {
                 canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
             }
-            //reset
-            mTextPaint =createTextPaint(getResources().getColor(R.color.digital_text));
+            //TODO get back to defaults with recreating whole thingy
+            resetTextPaint(getResources().getColor(R.color.digital_text),mTextPaint);
+
             mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_size));
 
             int fudge=0;
@@ -400,45 +438,40 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
 
                 Rect rectum = canvas.getClipBounds();
 
-                    Log.v("RECUM",String.valueOf(rectum.width()));
 
             if(mDate!=null) {
-                mTextPaint.setColor(getResources().getColor(R.color.primary_light));
+                mTextPaint.setColor(isInAmbientMode()? getResources().getColor(R.color.digital_text):getResources().getColor(R.color.primary_light));
                 mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_small));
                 mTextPaint.getTextBounds(mDate, 0, mDate.length(), mBos);
                 //TODO clean up mOxfest etrcs
-                canvas.drawText(mDate, (bounds.width() - mBos.width()) / 2, mYOffset + 36, mTextPaint);
+                canvas.drawText(mDate, (bounds.width() - mBos.width()) / 2, mYOffset + mDateY, mTextPaint);
             }
 
-            mTextPaint.setColor(getResources().getColor(R.color.primary_light));
-            canvas.drawLine(((bounds.width()/2)-30),mYOffset+56,((bounds.width()/2)+30),mYOffset+56,mTextPaint);
+            mTextPaint.setColor(isInAmbientMode()? getResources().getColor(R.color.digital_text):getResources().getColor(R.color.primary_light));
+            canvas.drawLine(((bounds.width()/2)-mLineLen),mYOffset+mLineY,((bounds.width()/2)+mLineLen),mYOffset+mLineY,mTextPaint);
 
             if(mHigh!=null){
-                mTextPaint.setColor(getResources().getColor(R.color.digital_text));
+                mTextPaint.setColor(isInAmbientMode()? getResources().getColor(R.color.digital_text):getResources().getColor(R.color.digital_text));
                 mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_med));
                 mTextPaint.setTypeface(BOLD_TYPEFACE);
                 mTextPaint.getTextBounds(mHigh,0,mHigh.length(),mBos);
                 int highW = mBos.width();
-                float highH= mBos.height() + 76 + mYOffset;
+                float highH= mBos.height() + mHighY + mYOffset;
                 mXOffset = (bounds.width()/2)-highW/2;
                 canvas.drawText(mHigh,mXOffset,highH,mTextPaint);
 
-                mTextPaint.setColor(getResources().getColor(R.color.primary_light));
+                mTextPaint.setColor(isInAmbientMode()? getResources().getColor(R.color.digital_text):getResources().getColor(R.color.primary_light));
                 mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_med));
                 mTextPaint.setTypeface(NORMAL_TYPEFACE);
                 mTextPaint.getTextBounds(mLow,0,mLow.length(),mBos);
-                mXOffset = (bounds.width()/2) + (highW/2) + 20;
+                mXOffset = (bounds.width()/2) + (highW/2) + mGenX;
                 canvas.drawText(mLow,mXOffset,highH,mTextPaint);
 
-                Rect tum = new Rect();
-                canvas.getClipBounds(tum);
-                Log.d("TUM",String.valueOf(tum.width()));
-                Log.d("Bound",String.valueOf(bounds.width()));
-
                 if(meBitmap!=null){
-                    mXOffset = (bounds.width()/2) - (highW/2) - 20 - meBitmap.getWidth();
+                    mXOffset = (bounds.width()/2) - (highW/2) - mGenX - meBitmap.getWidth();
 
                     canvas.drawBitmap(meBitmap,mXOffset,highH - (meBitmap.getHeight()/2)-8,null);
+
 
                 }
             }
@@ -500,6 +533,7 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
                 if(bitmap!=null){
 
                     meBitmap = Bitmap.createScaledBitmap(bitmap,42,42,false);
+
                     invalidate();
                 }
             }

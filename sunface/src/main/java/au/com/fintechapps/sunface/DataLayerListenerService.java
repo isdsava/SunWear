@@ -16,6 +16,7 @@ import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
 //Maybe for a future iteration but not needed for testing
+//UNUSED
 public class DataLayerListenerService extends WearableListenerService implements GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
 
     GoogleApiClient mGoogleApiClient;
