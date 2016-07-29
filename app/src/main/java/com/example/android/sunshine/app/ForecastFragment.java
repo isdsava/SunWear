@@ -169,24 +169,10 @@ public class ForecastFragment extends Fragment implements
 
         @Override
         public void onConnected(@Nullable Bundle bundle) {
-            Log.v(LOG_TAG,"COnnected!");
             Wearable.DataApi.addListener(mGoogleApiClient,this);
-            Log.v(LOG_TAG,"Listener adddes");
-
-            if (mPutDataMap != null) {
-
+              if (mPutDataMap != null) {
                 Wearable.DataApi.putDataItem(mGoogleApiClient, mPutDataMap.asPutDataRequest());
-                Log.v(LOG_TAG,"We've put it in its not a sin");
-               /** Wearable.DataApi.putDataItem(mGoogleApiClient, mPutReq)
-                        .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-                            @Override
-                            public void onResult(@NonNull DataApi.DataItemResult dataItemResult) {
-                                //handle failure here if needed
-                                if(dataItemResult.getStatus().isSuccess()){
-                                Log.v("HGERE", "some success bnoy");}
-                            }
-                        });**/
-            }
+                      }
         }
 
 
@@ -195,11 +181,9 @@ public class ForecastFragment extends Fragment implements
 
             if(connectionResult.hasResolution()){
                     try {
-                        Log.v(LOG_TAG,"Failed connect trying again");
-                        connectionResult.startResolutionForResult(getActivity(), REQUEST_RESOLVE_ERROR);
+                       connectionResult.startResolutionForResult(getActivity(), REQUEST_RESOLVE_ERROR);
                      }catch (IntentSender.SendIntentException e){
-                        Log.v(LOG_TAG,"Failed connectanother attempt");
-                        mGoogleApiClient.connect();
+                         mGoogleApiClient.connect();
 
                     }
             }else {
@@ -222,7 +206,7 @@ public class ForecastFragment extends Fragment implements
             super.onStart();
             if(!mGoogleApiClient.isConnected()){
                   mGoogleApiClient.connect();
-                Log.v(LOG_TAG,"On start - should now hit onConnected callback");}
+               }
 
         }
 
@@ -231,8 +215,6 @@ public class ForecastFragment extends Fragment implements
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
         sp.registerOnSharedPreferenceChangeListener(this);
         mGoogleApiClient.connect();
-
-        Log.v(LOG_TAG,"Just resumed now should call on connected again. and again");
 
         super.onResume();
     }
@@ -245,8 +227,7 @@ public class ForecastFragment extends Fragment implements
         if ((mGoogleApiClient != null) && mGoogleApiClient.isConnected()) {
             Wearable.DataApi.removeListener(mGoogleApiClient, this);
              mGoogleApiClient.disconnect();
-            Log.v(LOG_TAG,"Disconnected all listeners removed");
-        }
+            }
 
         super.onPause();
     }
@@ -492,7 +473,7 @@ public class ForecastFragment extends Fragment implements
                             String wearDate = ((ForecastAdapter.ForecastAdapterViewHolder) vh).mDateWearable;
                             Bitmap bitmap = ((BitmapDrawable)((ForecastAdapter.ForecastAdapterViewHolder) vh).mIconView.getDrawable()).getBitmap();
                             sendTodaysForecast(high,low,toAsset(bitmap),wearDate);
-                            Log.d(LOG_TAG, "Me high and me low are sett andf the are : " + high + " " +  low);
+
 
 
                         }
@@ -583,12 +564,9 @@ public class ForecastFragment extends Fragment implements
             mPutDataMap.getDataMap().putString(LOW_KEY, low);
             mPutDataMap.getDataMap().putAsset(IMAGE_KEY, imageAss);
             mPutDataMap.getDataMap().putString(DATE_KEY, wearDate);
-            mPutDataMap.getDataMap().putLong("Time",System.currentTimeMillis());
-
             mPutDataMap.setUrgent();
         }
 
-            //mPutReq = putDataMap.asPutDataRequest();}
 
                         //Thanks to android dev examples
             private static Asset toAsset(Bitmap bitmap) {
