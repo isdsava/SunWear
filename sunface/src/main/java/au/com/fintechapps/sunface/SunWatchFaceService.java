@@ -405,8 +405,8 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
                 case TAP_TYPE_TAP:
                     // The user has completed the tap gesture.
                     mTapCount++;
-                    mBackgroundPaint.setColor(resources.getColor(mTapCount % 2 == 0 ?
-                            R.color.background : R.color.background2));
+                    //mBackgroundPaint.setColor(resources.getColor(mTapCount % 2 == 0 ?
+                      //      R.color.background : R.color.background2));
                     break;
             }
             invalidate();
@@ -425,7 +425,6 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
 
             mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_size));
 
-            int fudge=0;
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             mTime.setToNow();
             String text = mAmbient
@@ -436,14 +435,10 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
 
             canvas.drawText(text, (bounds.width()-mBos.width())/2, mYOffset, mTextPaint);
 
-                Rect rectum = canvas.getClipBounds();
-
-
             if(mDate!=null) {
                 mTextPaint.setColor(isInAmbientMode()? getResources().getColor(R.color.digital_text):getResources().getColor(R.color.primary_light));
                 mTextPaint.setTextSize(getResources().getDimension(R.dimen.digital_text_small));
                 mTextPaint.getTextBounds(mDate, 0, mDate.length(), mBos);
-                //TODO clean up mOxfest etrcs
                 canvas.drawText(mDate, (bounds.width() - mBos.width()) / 2, mYOffset + mDateY, mTextPaint);
             }
 
@@ -469,7 +464,6 @@ public class SunWatchFaceService extends CanvasWatchFaceService {
 
                 if(meBitmap!=null){
                     mXOffset = (bounds.width()/2) - (highW/2) - mGenX - meBitmap.getWidth();
-
                     canvas.drawBitmap(meBitmap,mXOffset,highH - (meBitmap.getHeight()/2)-8,null);
 
 
